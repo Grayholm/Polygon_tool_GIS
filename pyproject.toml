@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "polygon-tool"
+version = "0.1.0"
+description = ""
+authors = ["Grayholm <rodiongrayholm@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+geopandas = "^1.1.2"
+shapely = "^2.1.2"
+numpy = "^2.4.2"
+scipy = "^1.17.1"
+matplotlib = "^3.10.8"
+pillow = "^12.1.1"
+pyqt6 = "^6.10.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
