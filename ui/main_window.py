@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QProgressBar, QTabWidget, QVBoxLayout, QWidget
-from PyQt6.QtGui import QIntValidator
+from PyQt6.QtGui import QDoubleValidator
+from PyQt6.QtCore import QLocale
 
 import config
 from logic.province_generator import generate_province_map
@@ -12,8 +13,10 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.geo_data = None
+        self.map_pixels_size = None
         self.pix_seeds = None
         self.line_seeds = None
+        self.coastline_seeds = None
 
         # Главное окно
         self.setWindowTitle(config.TITLE)
@@ -54,17 +57,21 @@ class MainWindow(QWidget):
         # Блок ввода пикселей
         pix_layout = QHBoxLayout()
 
-        pix_label = QLabel("Размер карты (в пикселях):")
+        pix_label = QLabel(
+            "Размер карты (Отношение пикселей к метру, чем больше значение, тем больше карта):"
+        )
         pix_layout.addWidget(pix_label)
 
         __exp_pix = QLineEdit()
-        __exp_pix.setPlaceholderText("Например: 512") # Placeholder подсказка внутри поля
-        __exp_pix.setValidator(QIntValidator(1, 1000))
-        __exp_pix.setMaximumWidth(120)
+        __exp_pix.setPlaceholderText("Например: 0.01")  # Подсказка
+
+        # Валидатор: min=0.001, max=5, максимум 3 знака после точки
+        validator = QDoubleValidator(0.001, 5.0, 3)
+        validator.setLocale(QLocale(QLocale.Language.English))  # точка как разделитель
+        __exp_pix.setValidator(validator)
 
         pix_layout.addWidget(__exp_pix)
         pix_layout.addStretch()
-
         land_tab_layout.addLayout(pix_layout)
 
         # Кнопка импорта
