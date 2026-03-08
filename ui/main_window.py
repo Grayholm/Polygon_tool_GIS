@@ -15,7 +15,7 @@ class MainWindow(QWidget):
         self.pix_seeds = None
         self.line_seeds = None
 
-        # MAIN LAYOUT
+        # Главное окно
         self.setWindowTitle(config.TITLE)
         self.setMinimumSize(800, 600)
         self.resize(config.WINDOW_SIZE_WIDTH,
@@ -36,7 +36,7 @@ class MainWindow(QWidget):
         self.label_version = QLabel("Version "+config.VERSION)
         main_layout.addWidget(self.label_version) # Это внешние отступы внутри вкладки
 
-        # TAB1 LAND IMAGE
+        # Первая вкладка - импорт GIS файла
         self.land_tab = QWidget()
         land_tab_layout = QVBoxLayout(self.land_tab)
         land_tab_layout.setContentsMargins(20, 20, 20, 20) 
@@ -57,12 +57,12 @@ class MainWindow(QWidget):
         pix_label = QLabel("Размер карты (в пикселях):")
         pix_layout.addWidget(pix_label)
 
-        exp_pix = QLineEdit()
-        exp_pix.setPlaceholderText("Например: 512") # Placeholder подсказка внутри поля
-        exp_pix.setValidator(QIntValidator(1, 1000))
-        exp_pix.setMaximumWidth(120)
+        __exp_pix = QLineEdit()
+        __exp_pix.setPlaceholderText("Например: 512") # Placeholder подсказка внутри поля
+        __exp_pix.setValidator(QIntValidator(1, 1000))
+        __exp_pix.setMaximumWidth(120)
 
-        pix_layout.addWidget(exp_pix)
+        pix_layout.addWidget(__exp_pix)
         pix_layout.addStretch()
 
         land_tab_layout.addLayout(pix_layout)
@@ -71,7 +71,7 @@ class MainWindow(QWidget):
         create_button(
             land_tab_layout,
             "Import GIS file",
-            lambda: import_file_of_areas(self, "Import GIS file", exp_pix.text())
+            lambda: import_file_of_areas(self, "Import GIS file", __exp_pix.text())
         )
 
         # Сообщение об успехе
@@ -90,7 +90,7 @@ class MainWindow(QWidget):
         # Растяжка вниз
         land_tab_layout.addStretch()
         
-        # TAB2 PROVINCE IMAGE
+        # Вторая вкладка - генерация карты провинций
         self.province_tab = QWidget()
         self.province_image_display = ImageDisplay()
         province_tab_layout = QVBoxLayout(self.province_tab)
@@ -101,4 +101,4 @@ class MainWindow(QWidget):
 
         self.button_gen_prov = create_button(province_tab_layout,
                                              "Generate Province Map",
-                                             lambda: generate_province_map(self, self.pix_seeds, self.line_seeds, exp_pix=exp_pix.text()))
+                                             lambda: generate_province_map(self, self.pix_seeds, self.line_seeds, __exp_pix.text(), image_display=self.province_image_display))
