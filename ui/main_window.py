@@ -100,12 +100,26 @@ class MainWindow(QWidget):
         # Вторая вкладка - генерация карты провинций
         self.province_tab = QWidget()
         self.province_image_display = ImageDisplay()
+
         province_tab_layout = QVBoxLayout(self.province_tab)
         province_tab_layout.addWidget(self.province_image_display)
+
         self.tabs.addTab(self.province_tab, "Province Image")
         button_row = QHBoxLayout()
+
+        __min_distance = QLineEdit()
+        __min_distance.setPlaceholderText("Минимальное расстояние между точками (чем меньше значение, тем больше провинций), по умолчанию = 90")
+
+        self.province_generation_progress = QProgressBar()
+        self.province_generation_progress.setVisible(False)
+        self.province_generation_progress.setMinimum(0)
+        self.province_generation_progress.setMaximum(100)
+        self.province_generation_progress.setValue(0)
+
+        province_tab_layout.addWidget(self.province_generation_progress)
+        province_tab_layout.addWidget(__min_distance)
         province_tab_layout.addLayout(button_row)
 
         self.button_gen_prov = create_button(province_tab_layout,
                                              "Generate Province Map",
-                                             lambda: generate_province_map(self, __exp_pix.text(), image_display=self.province_image_display))
+                                             lambda: generate_province_map(self, image_display=self.province_image_display, min_distance=__min_distance.text() if __min_distance.text() else 90)),

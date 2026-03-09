@@ -61,6 +61,9 @@ def conversion_to_pixels(
       * список преобразованных координат (float),
       * размер карты в пикселях (int,int).
     """
+    if not seeds:
+        return [], (0, 0)
+
     if bounds is None:
         minx, miny, maxx, maxy = _bounds_from_seeds(seeds)
     else:
@@ -116,6 +119,9 @@ def import_file_of_areas(layout, text: str, exp_pix: str):
     data = data.to_crs(epsg=3857) # переводим координаты геоданных в метры, чтобы потом корректно преобразовать в пиксели
     layout.geo_data = data
 
+    layout.progress.setVisible(True)
+    layout.progress.setValue(5)
+
     # извлекаем точки из геоданных, если они есть
     if 'place' in data.columns:
         populated = data[data['place'].isin(['village', 'city', 'town'])]
@@ -126,6 +132,8 @@ def import_file_of_areas(layout, text: str, exp_pix: str):
         pix_seeds, size = conversion_to_pixels(ppm, seeds)
         layout.pix_seeds = pix_seeds
         layout.map_pixels_size = size
+
+    layout.progress.setValue(50)
 
     # извлекаем линии рек, если они есть
     if 'waterway' in data.columns:
@@ -138,5 +146,6 @@ def import_file_of_areas(layout, text: str, exp_pix: str):
         layout.line_seeds = pix_lines
         layout.map_pixels_size = size
 
+    layout.progress.setValue(100)
     layout.success_label.show()
     print("Принял файл и закончил обработку")
