@@ -97,7 +97,7 @@ def conversion_to_pixels(
         return [[transform(x, y) for x, y in line] for line in seeds], (map_w_px, map_h_px)
 
 
-def import_file_of_areas(layout, text: str, exp_pix: str):
+def import_file_of_areas(layout, text: str, exp_pix):
     path, _ = QFileDialog.getOpenFileName(
         layout,
         text,

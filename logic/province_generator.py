@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 used_colors = set()
 
-def generate_province_map(layout, image_display, min_distance: int):
+def generate_province_map(layout, image_display, min_distance):
     """
     Генерация карты провинций с сохранением пропорций исходной области,
     выравниванием размеров провинций по наименьшей найденной провинции и
@@ -17,14 +17,24 @@ def generate_province_map(layout, image_display, min_distance: int):
     """
     used_colors.clear()
     if not hasattr(layout, 'pix_seeds') or not layout.pix_seeds:
-            print("Нет точек для генерации провинций!")
+            layout.error_label.setText("Сначала импортируйте файл с населенными пунктами!")
+            layout.error_label.show()
             return
+
+    layout.error_label.hide()
 
     original_points = np.array(layout.pix_seeds)  # исходные точки
     w, h = layout.map_pixels_size
 
     layout.progress.setVisible(True)
     layout.progress.setValue(10)
+
+    if type(min_distance) is str:
+        layout.error_label.setText("Минимальное расстояние должно быть числом!")
+        layout.error_label.show()
+        return
+
+    layout.error_label.hide()
 
     # Генерируем заполняющие точки по всей карте
     extra_points = poisson_disc_samples(w, h, min_distance, k=30, seed=42)

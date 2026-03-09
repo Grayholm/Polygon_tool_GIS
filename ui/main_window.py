@@ -26,6 +26,10 @@ class MainWindow(QWidget):
         main_layout = QVBoxLayout(self)
         self.setLayout(main_layout)
 
+        self.error_label = QLabel()
+        self.error_label.setStyleSheet("color: red;")
+        self.error_label.hide()
+
         self.tabs = QTabWidget()
         main_layout.addWidget(self.tabs, stretch=1)
 
@@ -72,6 +76,8 @@ class MainWindow(QWidget):
 
         pix_layout.addWidget(__exp_pix)
         pix_layout.addStretch()
+
+        land_tab_layout.addWidget(self.error_label)
         land_tab_layout.addLayout(pix_layout)
 
         # Кнопка импорта
@@ -116,6 +122,7 @@ class MainWindow(QWidget):
         self.province_generation_progress.setMaximum(100)
         self.province_generation_progress.setValue(0)
 
+        province_tab_layout.addWidget(self.error_label)
         province_tab_layout.addWidget(self.province_generation_progress)
         province_tab_layout.addWidget(__min_distance)
         province_tab_layout.addLayout(button_row)
