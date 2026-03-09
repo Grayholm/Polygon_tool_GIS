@@ -108,4 +108,4 @@ class MainWindow(QWidget):
 
         self.button_gen_prov = create_button(province_tab_layout,
                                              "Generate Province Map",
-                                             lambda: generate_province_map(self, self.pix_seeds, self.line_seeds, __exp_pix.text(), image_display=self.province_image_display))
+                                             lambda: generate_province_map(self, __exp_pix.text(), image_display=self.province_image_display))

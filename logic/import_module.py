@@ -9,55 +9,90 @@
 import geopandas as gpd
 from PyQt6.QtWidgets import QFileDialog
 
-def conversion_to_pixels(
-    pixels_per_meter: float,          # например 0.5, 1.0, 2.0, 4.0
-    data: gpd.GeoDataFrame,
+# доп проверки
+def _is_point(obj) -> bool:
+    return (
+        isinstance(obj, (tuple, list))
+        and len(obj) == 2
+        and isinstance(obj[0], (int, float))
+        and isinstance(obj[1], (int, float))
+    )
+
+def _bounds_from_seeds(
     seeds: list[tuple[float, float]] | list[list[tuple[float, float]]]
-) -> tuple[list[tuple[int, int]] | list[list[tuple[int, int]]], tuple[int, int]]:
+) -> tuple[float, float, float, float]:
+    # вычисляет minx,miny,maxx,maxy по плоскому списку точек или по списку линий, додумался до такого простого решения
+    xs: list[float] = []
+    ys: list[float] = []
+
+    def collect(pt):
+        xs.append(pt[0]); ys.append(pt[1])
+
+    if not seeds:
+        return 0.0, 0.0, 0.0, 0.0
+
+    if _is_point(seeds[0]):
+        for p in seeds:
+            collect(p)
+    else:
+        for line in seeds:
+            for p in line:
+                collect(p)
+
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def conversion_to_pixels(
+    pixels_per_meter: float,
+    seeds: list[tuple[float, float]] | list[list[tuple[float, float]]],
+    bounds: tuple[float, float, float, float] | None = None
+) -> tuple[
+       list[tuple[float, float]] | list[list[tuple[float, float]]],
+       tuple[int, int]
+   ]:
     """
+    pixels_per_meter – коэффициент пикселей на метр;
+    seeds – либо список точек, либо список линий (каждая линия
+    – список кортежей);
+    bounds – если передан, используются эти границы, иначе считаются
+             по самих seeds.
+
     Возвращает:
-    - преобразованные координаты в пикселях
-    - итоговый размер карты (width, height) в пикселях
+      * список преобразованных координат (float),
+      * размер карты в пикселях (int,int).
     """
-    if data.empty:
-        return [], (1, 1)
+    if bounds is None:
+        minx, miny, maxx, maxy = _bounds_from_seeds(seeds)
+    else:
+        minx, miny, maxx, maxy = bounds
 
-    minx, miny, maxx, maxy = data.total_bounds
+    if maxx == minx and maxy == miny:
+        center = (32.0, 32.0)
+        return ([center] if _is_point(seeds[0]) else [[center]]), (64, 64)
 
-    # Реальная ширина и высота в метрах (в проекции 3857)
-    w_meters  = maxx - minx
-    h_meters = maxy - miny
+    w_m = maxx - minx
+    h_m = maxy - miny
+    # перевод размер границ в пиксели с минимумом размера по 64 пикселя
+    map_w_px = max(int(round(w_m * pixels_per_meter)), 64)
+    map_h_px = max(int(round(h_m * pixels_per_meter)), 64)
 
-    # Размер в пикселях
-    map_w_px  = int(w_meters  * pixels_per_meter)
-    map_h_px = int(h_meters * pixels_per_meter)
+    # сохраняем пропорции, деля меньшую сторону на большую
+    scale_x = map_w_px / w_m if w_m > 0 else map_h_px / h_m
+    scale_y = map_h_px / h_m if h_m > 0 else scale_x
 
-    # Защита от слишком маленькой карты
-    map_w_px  = max(map_w_px,  64)
-    map_h_px = max(map_h_px, 64)
-
-    # Вычисляем масштаб для преобразования координат в пиксели, сохраняя пропорции
-    scale_x = map_w_px  / w_meters   if w_meters  > 0 else 1
-    scale_y = map_h_px / h_meters  if h_meters > 0 else 1
-
-    # Преобразование координат в пиксели
     def transform(x, y):
-        px = int((x - minx) * scale_x)
-        py = int((maxy - y) * scale_y)   # инверсия Y для экрана
-        # Ограничиваем, чтобы не вылезти за пределы из-за округления
-        px = max(0, min(px, map_w_px - 1))
-        py = max(0, min(py, map_h_px - 1))
+        # перевод координат в пиксели, с инверсией по Y
+        px = (x - minx) * scale_x
+        py = (maxy - y) * scale_y       # инверсия по Y
+        px = max(0.0, min(px, map_w_px - 1))
+        py = max(0.0, min(py, map_h_px - 1))
         return px, py
 
-
-    if isinstance(seeds[0], (tuple, list)) and len(seeds[0]) == 2:
-        # список точек
-        pix_seeds = [transform(x, y) for x, y in seeds]
-        return pix_seeds, (map_w_px, map_h_px)
+    if _is_point(seeds[0]):
+        return [transform(x, y) for x, y in seeds], (map_w_px, map_h_px)
     else:
-        # список линий / мультигеометрий
-        pix_lines = [[transform(x, y) for x, y in line] for line in seeds]
-        return pix_lines, (map_w_px, map_h_px)
+        return [[transform(x, y) for x, y in line] for line in seeds], (map_w_px, map_h_px)
+
 
 def import_file_of_areas(layout, text: str, exp_pix: str):
     path, _ = QFileDialog.getOpenFileName(
@@ -68,46 +103,40 @@ def import_file_of_areas(layout, text: str, exp_pix: str):
     )
     if not path:
         return
-    
-    try:
-        ppm = float(exp_pix)  # например "1.0" или "0.8"
-    except:
-        ppm = 0.01   # значение по умолчанию
 
-    data = gpd.read_file(path)
+    try:
+        ppm = float(exp_pix)
+    except Exception:
+        ppm = 0.01
+
     data = gpd.read_file(path)
     if data.empty:
         layout.success_label.setText("Файл пустой")
         return
-    data = data.to_crs(epsg=3857) # Преобразуем координаты в проекцию Web Mercator (EPSG:3857), которая использует метры в качестве единиц измерения. Это позволит нам работать с координатами в пикселях более точно.
-
+    data = data.to_crs(epsg=3857) # переводим координаты геоданных в метры, чтобы потом корректно преобразовать в пиксели
     layout.geo_data = data
 
-    # Получение координат населенных пунктов (Долгота и широта по типу (15.3296971, 49.9613718))
+    # извлекаем точки из геоданных, если они есть
     if 'place' in data.columns:
-        populated_areas = data[data['place'].isin(['village', 'hamlet', 'suburb'])]
-        seeds = [(p.x, p.y) for p in populated_areas.geometry]
-
-        pix_seeds, (x, y) = conversion_to_pixels(ppm, data, seeds)
-        
-        # На выход идет список кортежей с координатами в пикселях, типа [(x1, y1), (x2, y2), ...]
+        populated = data[data['place'].isin(['village', 'city', 'town'])]
+        # Крпрче, из-за того, что в некоторых файлах точки могут быть представлены как полигоны (например, город может быть полигоном), 
+        # мы берем их центры для генерации провинций. Если же это уже точки, то просто берем их координаты.
+        seeds = [(p.centroid.x, p.centroid.y)
+                 for p in populated.geometry]
+        pix_seeds, size = conversion_to_pixels(ppm, seeds)
         layout.pix_seeds = pix_seeds
-        layout.map_pixels_size = (x, y)
+        layout.map_pixels_size = size
 
+    # извлекаем линии рек, если они есть
     if 'waterway' in data.columns:
-        line_areas = data[data['waterway'].isin(['river', 'stream'])]
-
-        line_linestrings = line_areas[line_areas.geometry.type == 'LineString'].geometry
-        line_seeds = [list(line.coords) for line in line_linestrings]
-
-        line_seeds, (x, y) = conversion_to_pixels(ppm, data, line_seeds)
-
-        # На выход идет список списков кортежей с координатами в пикселях, типа [[(x1, y1), (x2, y2), ...], [...], ...]
-        layout.line_seeds = line_seeds
-        layout.map_pixels_size = (x, y)
+        waterways = data[data['waterway'].isin(['river'])]
+        # Тут есть тип не только way, но и relation, и в зависимости от типа геометрии может быть LineString или MultiLineString.
+        line_seeds = [list(l.coords)
+                      for l in waterways.geometry
+                      if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
+        pix_lines, size = conversion_to_pixels(ppm, line_seeds)
+        layout.line_seeds = pix_lines
+        layout.map_pixels_size = size
 
     layout.success_label.show()
-    print(layout.pix_seeds)
-    print(len(layout.pix_seeds))
-    print(layout.line_seeds)
     print("Принял файл и закончил обработку")
