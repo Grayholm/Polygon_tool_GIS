@@ -112,15 +112,15 @@ def import_file_of_areas(layout, text: str, exp_pix):
     except Exception:
         ppm = 0.01
 
+    layout.progress.setVisible(True)
+    layout.progress.setValue(5)
+
     data = gpd.read_file(path)
     if data.empty:
         layout.success_label.setText("Файл пустой")
         return
     data = data.to_crs(epsg=3857) # переводим координаты геоданных в метры, чтобы потом корректно преобразовать в пиксели
     layout.geo_data = data
-
-    layout.progress.setVisible(True)
-    layout.progress.setValue(5)
 
     # извлекаем точки из геоданных, если они есть
     if 'place' in data.columns:

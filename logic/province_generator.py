@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 used_colors = set()
 
-def generate_province_map(layout, image_display, min_distance):
+def generate_province_map(layout, image_display, min_distance: int):
     """
     Генерация карты провинций с сохранением пропорций исходной области,
     выравниванием размеров провинций по наименьшей найденной провинции и
@@ -28,11 +28,6 @@ def generate_province_map(layout, image_display, min_distance):
 
     layout.progress.setVisible(True)
     layout.progress.setValue(10)
-
-    if type(min_distance) is str:
-        layout.error_label.setText("Минимальное расстояние должно быть числом!")
-        layout.error_label.show()
-        return
 
     layout.error_label.hide()
 

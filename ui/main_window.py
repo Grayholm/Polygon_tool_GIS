@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QProgressBar, QTabWidget, QVBoxLayout, QWidget
-from PyQt6.QtGui import QDoubleValidator
+from PyQt6.QtGui import QDoubleValidator, QIntValidator
 from PyQt6.QtCore import QLocale
 
 import config
@@ -67,7 +67,7 @@ class MainWindow(QWidget):
         pix_layout.addWidget(pix_label)
 
         __exp_pix = QLineEdit()
-        __exp_pix.setPlaceholderText("Например: 0.01")  # Подсказка
+        __exp_pix.setPlaceholderText("По умолчанию: 0.01")  # Подсказка
 
         # Валидатор: min=0.001, max=5, максимум 3 знака после точки
         validator = QDoubleValidator(0.001, 5.0, 3)
@@ -115,6 +115,8 @@ class MainWindow(QWidget):
 
         __min_distance = QLineEdit()
         __min_distance.setPlaceholderText("Минимальное расстояние между точками (чем меньше значение, тем больше провинций), по умолчанию = 90")
+        validator = QIntValidator(10, 500)
+        __min_distance.setValidator(validator)
 
         self.province_generation_progress = QProgressBar()
         self.province_generation_progress.setVisible(False)
@@ -129,4 +131,4 @@ class MainWindow(QWidget):
 
         self.button_gen_prov = create_button(province_tab_layout,
                                              "Generate Province Map",
-                                             lambda: generate_province_map(self, image_display=self.province_image_display, min_distance=__min_distance.text() if __min_distance.text() else 90)),
+                                             lambda: generate_province_map(self, image_display=self.province_image_display, min_distance=int(__min_distance.text()) if __min_distance.text() else 90)),
