@@ -139,11 +139,20 @@ def import_file_of_areas(layout, text: str, exp_pix):
     if 'waterway' in data.columns:
         waterways = data[data['waterway'].isin(['river'])]
         # Тут есть тип не только way, но и relation, и в зависимости от типа геометрии может быть LineString или MultiLineString.
-        line_seeds = [list(l.coords)
+        river_seeds = [list(l.coords)
                       for l in waterways.geometry
                       if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
-        pix_lines, size = conversion_to_pixels(ppm, line_seeds)
-        layout.line_seeds = pix_lines
+        pix_lines, size = conversion_to_pixels(ppm, river_seeds)
+        layout.river_seeds = pix_lines
+        layout.map_pixels_size = size
+
+    if 'natural' in data.columns:
+        coastlines = data[data['natural'] == 'coastline']
+        coastline_seeds = [list(l.coords)
+                          for l in coastlines.geometry
+                          if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
+        pix_coastlines, size = conversion_to_pixels(ppm, coastline_seeds)
+        layout.coastline_seeds = pix_coastlines
         layout.map_pixels_size = size
 
     layout.progress.setValue(100)

@@ -15,7 +15,7 @@ class MainWindow(QWidget):
         self.geo_data = None
         self.map_pixels_size = None
         self.pix_seeds = None
-        self.line_seeds = None
+        self.river_seeds = None
         self.coastline_seeds = None
 
         # Главное окно
