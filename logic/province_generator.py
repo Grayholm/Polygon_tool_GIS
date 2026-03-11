@@ -8,11 +8,17 @@ import matplotlib.pyplot as plt
 
 used_colors = set()
 
-transformer = Transformer.from_crs(3857, 4326, always_xy=True)
+class PixelToLatLon:
+    def __init__(self):
+        # EPSG:3857 -> EPSG:4326
+        self._transformer = Transformer.from_crs(3857, 4326, always_xy=True)
+
+    def transform(self, x, y):
+        return self._transformer.transform(x, y)
 
 def pixels_to_degrees(px, py, minx, maxy, scale_x, scale_y):
     def meters_to_degrees(x, y):
-        x, y = transformer.transform(x, y)
+        x, y = PixelToLatLon().transform(x, y)
         return globe.is_land(y, x)
 
     def inv(px, py):
