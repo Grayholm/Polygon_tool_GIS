@@ -1,25 +1,18 @@
 from global_land_mask import globe
 import numpy as np
-from shapely import Point
+from pyproj import Transformer
 
 from logic.poisson_disc_samples import poisson_disc_samples
 from scipy.spatial import Voronoi, voronoi_plot_2d
 import matplotlib.pyplot as plt
-import geopandas as gpd
 
 used_colors = set()
 
+transformer = Transformer.from_crs(3857, 4326, always_xy=True)
+
 def pixels_to_degrees(px, py, minx, maxy, scale_x, scale_y):
     def meters_to_degrees(x, y):
-        gdf = gpd.GeoDataFrame(
-            geometry=[Point(x, y)],
-            crs="EPSG:3857"
-        )
-
-        gdf = gdf.to_crs(epsg=4326)
-
-        x, y = gdf.geometry.x.iloc[0], gdf.geometry.y.iloc[0]
-
+        x, y = transformer.transform(x, y)
         return globe.is_land(y, x)
 
     def inv(px, py):
@@ -56,6 +49,8 @@ def generate_province_map(layout, image_display, min_distance: int):
     layout.progress.setValue(10)
 
     layout.error_label.hide()
+
+
 
     # Генерируем заполняющие точки по всей карте
     extra_points = poisson_disc_samples(w, h, min_distance, k=30, seed=42, is_land=lambda px, py: is_land_pixel(layout, px, py))
