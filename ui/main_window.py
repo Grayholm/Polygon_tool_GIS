@@ -18,6 +18,11 @@ class MainWindow(QWidget):
         self.river_seeds = None
         self.coastline_seeds = None
 
+        self.scale_x = None
+        self.scale_y = None
+        self.minx = None
+        self.maxy = None
+
         # Главное окно
         self.setWindowTitle(config.TITLE)
         self.setMinimumSize(800, 600)

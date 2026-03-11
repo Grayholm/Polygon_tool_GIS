@@ -1,6 +1,6 @@
 import numpy as np
 
-def poisson_disc_samples(width, height, min_distance, k=30, seed=None):
+def poisson_disc_samples(width, height, min_distance, k=30, seed=None, is_land=None):
     """
     Bridson's Poisson disk sampling — заполняет прямоугольник [0, width) × [0, height)
     точками так, чтобы расстояние между любыми двумя было не меньше min_distance.
@@ -39,6 +39,9 @@ def poisson_disc_samples(width, height, min_distance, k=30, seed=None):
         for _ in range(k):
             candidate = random_in_ring(center)
             if not (0 <= candidate[0] < width and 0 <= candidate[1] < height):
+                continue
+
+            if not is_land(candidate[0], candidate[1]):
                 continue
             
             cx, cy = (candidate // cell_size).astype(int)

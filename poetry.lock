@@ -213,6 +213,17 @@ all = ["GeoAlchemy2", "SQLAlchemy (>=2.0)", "folium", "geopy", "mapclassify (>=2
 dev = ["codecov", "pre-commit", "pytest (>=3.1.0)", "pytest-cov", "pytest-xdist", "ruff"]
 
 [[package]]
+name = "global-land-mask"
+version = "1.0.0"
+description = "Check whether a lat/lon point in on land or on sea"
+optional = false
+python-versions = "*"
+files = [
+    {file = "global-land-mask-1.0.0.tar.gz", hash = "sha256:956bf02e8b05bfc9f3a29cbc6e97d5ba4151c0732504acc73c2db9ea325ecff3"},
+    {file = "global_land_mask-1.0.0-py3-none-any.whl", hash = "sha256:07751fbb4e3834ee508a84ea64d9bd5340fbd0a8c951e24b43c323fcc670bb62"},
+]
+
+[[package]]
 name = "kiwisolver"
 version = "1.4.9"
 description = "A fast implementation of the Cassowary constraint solver"
@@ -1093,4 +1104,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.13"
-content-hash = "25e0d62c54ef3b27336e49f03aa6f7d7eb9ec7b0e764c287672a736ab7ff9280"
+content-hash = "1377e1a34cf6517db1982784bba4b79038bcba06aa7954b9413c77824e23463a"

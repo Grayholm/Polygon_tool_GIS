@@ -43,6 +43,7 @@ def _bounds_from_seeds(
 
 
 def conversion_to_pixels(
+    layout,
     pixels_per_meter: float,
     seeds: list[tuple[float, float]] | list[list[tuple[float, float]]],
     bounds: tuple[float, float, float, float] | None = None
@@ -72,6 +73,9 @@ def conversion_to_pixels(
     if maxx == minx and maxy == miny:
         center = (32.0, 32.0)
         return ([center] if _is_point(seeds[0]) else [[center]]), (64, 64)
+    
+    layout.minx = minx
+    layout.maxy = maxy
 
     w_m = maxx - minx
     h_m = maxy - miny
@@ -82,6 +86,9 @@ def conversion_to_pixels(
     # сохраняем пропорции, деля меньшую сторону на большую
     scale_x = map_w_px / w_m if w_m > 0 else map_h_px / h_m
     scale_y = map_h_px / h_m if h_m > 0 else scale_x
+
+    layout.scale_x = scale_x
+    layout.scale_y = scale_y
 
     def transform(x, y):
         # перевод координат в пиксели, с инверсией по Y
@@ -95,7 +102,6 @@ def conversion_to_pixels(
         return [transform(x, y) for x, y in seeds], (map_w_px, map_h_px)
     else:
         return [[transform(x, y) for x, y in line] for line in seeds], (map_w_px, map_h_px)
-
 
 def import_file_of_areas(layout, text: str, exp_pix):
     path, _ = QFileDialog.getOpenFileName(
@@ -129,7 +135,7 @@ def import_file_of_areas(layout, text: str, exp_pix):
         # мы берем их центры для генерации провинций. Если же это уже точки, то просто берем их координаты.
         seeds = [(p.centroid.x, p.centroid.y)
                  for p in populated.geometry]
-        pix_seeds, size = conversion_to_pixels(ppm, seeds)
+        pix_seeds, size = conversion_to_pixels(layout, ppm, seeds)
         layout.pix_seeds = pix_seeds
         layout.map_pixels_size = size
 

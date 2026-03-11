@@ -1,20 +1,46 @@
+from global_land_mask import globe
 import numpy as np
+from shapely import Point
 
 from logic.poisson_disc_samples import poisson_disc_samples
 from scipy.spatial import Voronoi, voronoi_plot_2d
 import matplotlib.pyplot as plt
+import geopandas as gpd
 
 used_colors = set()
 
+def pixels_to_degrees(px, py, minx, maxy, scale_x, scale_y):
+    def meters_to_degrees(x, y):
+        gdf = gpd.GeoDataFrame(
+            geometry=[Point(x, y)],
+            crs="EPSG:3857"
+        )
+
+        gdf = gdf.to_crs(epsg=4326)
+
+        x, y = gdf.geometry.x.iloc[0], gdf.geometry.y.iloc[0]
+
+        return globe.is_land(y, x)
+
+    def inv(px, py):
+        x = px / scale_x + minx
+        y = maxy - (py / scale_y)
+        return x, y
+
+    x, y = inv(px, py)
+
+    return meters_to_degrees(x, y)
+
+def is_land_pixel(layout, px, py):
+    return pixels_to_degrees(
+        px, py,
+        layout.minx,
+        layout.maxy,
+        layout.scale_x,
+        layout.scale_y
+    )
+
 def generate_province_map(layout, image_display, min_distance: int):
-    """
-    Генерация карты провинций с сохранением пропорций исходной области,
-    выравниванием размеров провинций по наименьшей найденной провинции и
-    крупными провинциями на море.
-    - exp_pix: целевая ширина результата в пикселях (высота рассчитывается по пропорциям)
-    - image_display: объект с методом set_image(PIL.Image)
-    - main_layout.progress — QProgressBar (опционально)
-    """
     used_colors.clear()
     if not hasattr(layout, 'pix_seeds') or not layout.pix_seeds:
             layout.error_label.setText("Сначала импортируйте файл с населенными пунктами!")
@@ -32,7 +58,7 @@ def generate_province_map(layout, image_display, min_distance: int):
     layout.error_label.hide()
 
     # Генерируем заполняющие точки по всей карте
-    extra_points = poisson_disc_samples(w, h, min_distance, k=30, seed=42)
+    extra_points = poisson_disc_samples(w, h, min_distance, k=30, seed=42, is_land=lambda px, py: is_land_pixel(layout, px, py))
 
     layout.progress.setValue(30)
 
