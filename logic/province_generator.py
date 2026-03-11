@@ -77,7 +77,7 @@ def generate_province_map(layout, image_display, min_distance: int):
 
     vor = Voronoi(all_points)
 
-    fig = voronoi_plot_2d(vor)
+    voronoi_plot_2d(vor)
     plt.gca().invert_yaxis()  # Инвертируем Y, это из-за matplotlib
 
     layout.progress.setValue(80)
