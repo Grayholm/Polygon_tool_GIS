@@ -166,7 +166,15 @@ def import_file_of_areas(layout, text: str, exp_pix):
             bays = data[data['natural'] == 'bay']
             bays_polygons = [i for i in bays.geometry]
             layout.bays_polygons = bays_polygons
-            
+
+        if "water" in data['natural'].values:
+            lakes_wgs84 = data[data['water'] == 'lake']
+            lakes = lakes_wgs84.to_crs(epsg=3857)
+            lakes = lakes[lakes.geometry.area > 5000000]
+            lakes_filtered = lakes.to_crs(4326)
+            lakes_polygons = [i for i in lakes_filtered.geometry]
+            layout.lakes_polygons = lakes_polygons
+
     layout.progress.setValue(100)
     layout.success_label.show()
     print("Принял файл и закончил обработку")

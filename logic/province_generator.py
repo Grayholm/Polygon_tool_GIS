@@ -39,6 +39,14 @@ def is_land_pixel(layout, px, py):
         layout.scale_y
     )
 
+def to_land_pixel(layout, px, py):
+    x = px / layout.scale_x + layout.minx
+    y = layout.maxy - (py / layout.scale_y)
+
+    dx, dy = PixelToLatLon().transform(x, y)
+
+    return dx, dy
+
 def generate_province_map(layout, image_display, min_distance: int):
     used_colors.clear()
     if not hasattr(layout, 'pix_seeds') or not layout.pix_seeds:
@@ -59,7 +67,7 @@ def generate_province_map(layout, image_display, min_distance: int):
 
 
     # Генерируем заполняющие точки по всей карте
-    extra_points = poisson_disc_samples(layout, w, h, min_distance, k=30, seed=42, is_land=lambda px, py: is_land_pixel(layout, px, py))
+    extra_points = poisson_disc_samples(layout, w, h, min_distance, k=30, seed=42, is_land=lambda px, py: is_land_pixel(layout, px, py), to_land=lambda px, py: to_land_pixel(layout, px, py))
 
     layout.progress.setValue(30)
 

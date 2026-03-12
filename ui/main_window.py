@@ -19,7 +19,9 @@ class MainWindow(QWidget):
         self.pix_seeds = None
         self.river_seeds = None
         self.coastline_seeds = None
+
         self.bays_polygons = None
+        self.lakes_polygons = None
 
         self.scale_x = None
         self.scale_y = None
