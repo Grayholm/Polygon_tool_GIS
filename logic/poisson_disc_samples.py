@@ -1,6 +1,7 @@
 import numpy as np
+from shapely import Point
 
-def poisson_disc_samples(width, height, min_distance, k=30, seed=None, is_land=None):
+def poisson_disc_samples(layout, width, height, min_distance, k=30, seed=None, is_land=None):
     """
     Bridson's Poisson disk sampling — заполняет прямоугольник [0, width) × [0, height)
     точками так, чтобы расстояние между любыми двумя было не меньше min_distance.
@@ -43,7 +44,11 @@ def poisson_disc_samples(width, height, min_distance, k=30, seed=None, is_land=N
 
             if not is_land(candidate[0], candidate[1]):
                 continue
-            
+
+            for poly in layout.bays_polygons:
+                if poly.contains(Point(candidate[0], candidate[1])):
+                    continue
+
             cx, cy = (candidate // cell_size).astype(int)
             too_close = False
             

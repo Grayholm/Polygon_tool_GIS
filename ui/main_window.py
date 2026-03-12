@@ -9,6 +9,8 @@ from ui.buttons import create_button
 from logic.import_module import import_file_of_areas
 from ui.image_display import ImageDisplay
 
+# Это просто описание окна, в котором будет происходить все действия. Вся логика генерации провинций и отображения карты будет вызываться из этого класса.
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -17,6 +19,7 @@ class MainWindow(QWidget):
         self.pix_seeds = None
         self.river_seeds = None
         self.coastline_seeds = None
+        self.bays_polygons = None
 
         self.scale_x = None
         self.scale_y = None

@@ -153,14 +153,20 @@ def import_file_of_areas(layout, text: str, exp_pix):
         layout.map_pixels_size = size
 
     if 'natural' in data.columns:
-        coastlines = data[data['natural'] == 'coastline']
-        coastline_seeds = [list(l.coords)
-                          for l in coastlines.geometry
-                          if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
-        pix_coastlines, size = conversion_to_pixels(ppm, coastline_seeds)
-        layout.coastline_seeds = pix_coastlines
-        layout.map_pixels_size = size
+        if "coastline" in data['natural'].values:
+            coastlines = data[data['natural'] == 'coastline']
+            coastline_seeds = [list(l.coords)
+                            for l in coastlines.geometry
+                            if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
+            pix_coastlines, size = conversion_to_pixels(ppm, coastline_seeds)
+            layout.coastline_seeds = pix_coastlines
+            layout.map_pixels_size = size
 
+        if "bay" in data['natural'].values:
+            bays = data[data['natural'] == 'bay']
+            bays_polygons = [i for i in bays.geometry]
+            layout.bays_polygons = bays_polygons
+            
     layout.progress.setValue(100)
     layout.success_label.show()
     print("Принял файл и закончил обработку")

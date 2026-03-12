@@ -21,12 +21,12 @@ def pixels_to_degrees(px, py, minx, maxy, scale_x, scale_y):
         x, y = PixelToLatLon().transform(x, y)
         return globe.is_land(y, x)
 
-    def inv(px, py):
+    def pixels_to_meters(px, py):
         x = px / scale_x + minx
         y = maxy - (py / scale_y)
         return x, y
 
-    x, y = inv(px, py)
+    x, y = pixels_to_meters(px, py)
 
     return meters_to_degrees(x, y)
 
@@ -59,7 +59,7 @@ def generate_province_map(layout, image_display, min_distance: int):
 
 
     # Генерируем заполняющие точки по всей карте
-    extra_points = poisson_disc_samples(w, h, min_distance, k=30, seed=42, is_land=lambda px, py: is_land_pixel(layout, px, py))
+    extra_points = poisson_disc_samples(layout, w, h, min_distance, k=30, seed=42, is_land=lambda px, py: is_land_pixel(layout, px, py))
 
     layout.progress.setValue(30)
 
