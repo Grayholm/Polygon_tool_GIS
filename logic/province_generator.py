@@ -8,17 +8,23 @@ import matplotlib.pyplot as plt
 
 used_colors = set()
 
+# Создаем Transformer один раз при загрузке модуля (оптимизация)
+_TRANSFORMER = Transformer.from_crs(3857, 4326, always_xy=True)
+
 class PixelToLatLon:
     def __init__(self):
-        # EPSG:3857 -> EPSG:4326
-        self._transformer = Transformer.from_crs(3857, 4326, always_xy=True)
+        # EPSG:3857 -> EPSG:4326 - используем глобальный transformer
+        pass
 
     def transform(self, x, y):
-        return self._transformer.transform(x, y)
+        return _TRANSFORMER.transform(x, y)
+
+# Кэшируем единственный экземпляр
+_pixel_to_latlon = PixelToLatLon()
 
 def pixels_to_degrees(px, py, minx, maxy, scale_x, scale_y):
     def meters_to_degrees(x, y):
-        x, y = PixelToLatLon().transform(x, y)
+        x, y = _pixel_to_latlon.transform(x, y)
         return globe.is_land(y, x)
 
     def pixels_to_meters(px, py):
@@ -43,7 +49,7 @@ def to_land_pixel(layout, px, py):
     x = px / layout.scale_x + layout.minx
     y = layout.maxy - (py / layout.scale_y)
 
-    dx, dy = PixelToLatLon().transform(x, y)
+    dx, dy = _pixel_to_latlon.transform(x, y)
 
     return dx, dy
 

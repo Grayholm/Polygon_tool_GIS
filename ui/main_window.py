@@ -141,4 +141,7 @@ class MainWindow(QWidget):
 
         self.button_gen_prov = create_button(province_tab_layout,
                                              "Generate Province Map",
-                                             lambda: generate_province_map(self, image_display=self.province_image_display, min_distance=int(__min_distance.text()) if __min_distance.text() else 90)),
+                                             lambda: generate_province_map(
+                                                 self, 
+                                                 image_display=self.province_image_display, 
+                                                 min_distance=int(__min_distance.text()) if __min_distance.text() else 90)),
