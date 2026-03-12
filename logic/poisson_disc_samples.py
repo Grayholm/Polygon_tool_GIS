@@ -1,5 +1,6 @@
 import numpy as np
 from shapely import Point
+from shapely.strtree import STRtree
 
 def poisson_disc_samples(layout, width, height, min_distance, k=30, seed=None, is_land=None, to_land=None):
     """
@@ -24,6 +25,9 @@ def poisson_disc_samples(layout, width, height, min_distance, k=30, seed=None, i
     
     points = []
     active = []
+
+    lakes_index = STRtree(layout.lakes_polygons)
+    bays_index = STRtree(layout.bays_polygons)
     
     # Первая случайная точка
     first = np.array([np.random.uniform(0, width), np.random.uniform(0, height)])
@@ -50,10 +54,12 @@ def poisson_disc_samples(layout, width, height, min_distance, k=30, seed=None, i
 
             p = Point(x, y)
 
-            if any(poly.covers(p) for poly in layout.bays_polygons):
+            candidate_lakes = [layout.lakes_polygons[i] for i in lakes_index.query(p)]
+            if any(poly.contains(p) for poly in candidate_lakes):
                 continue
 
-            if any(poly.covers(p) for poly in layout.lakes_polygons):
+            candidate_bays = [layout.bays_polygons[i] for i in bays_index.query(p)]
+            if any(poly.contains(p) for poly in candidate_bays):
                 continue
 
             cx, cy = (candidate // cell_size).astype(int)
