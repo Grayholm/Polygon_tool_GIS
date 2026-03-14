@@ -55,11 +55,11 @@ def poisson_disc_samples(layout, width, height, min_distance, k=30, seed=None, i
             p = Point(x, y)
 
             candidate_lakes = [layout.lakes_polygons[i] for i in lakes_index.query(p)]
-            if any(poly.contains(p) for poly in candidate_lakes):
+            if any(poly.covers(p) for poly in candidate_lakes):
                 continue
 
             candidate_bays = [layout.bays_polygons[i] for i in bays_index.query(p)]
-            if any(poly.contains(p) for poly in candidate_bays):
+            if any(poly.covers(p) for poly in candidate_bays):
                 continue
 
             cx, cy = (candidate // cell_size).astype(int)
