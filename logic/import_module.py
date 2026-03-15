@@ -121,7 +121,7 @@ def import_file_of_areas(layout, text: str, exp_pix):
     layout.progress.setVisible(True)
     layout.progress.setValue(5)
 
-    data = gpd.read_file(path)
+    data = gpd.read_file(path, on_invalid="fix")
     if data.empty:
         layout.success_label.setText("Файл пустой")
         return
@@ -168,7 +168,8 @@ def import_file_of_areas(layout, text: str, exp_pix):
             layout.bays_polygons = bays_polygons
 
         if "water" in data['natural'].values:
-            lakes_wgs84 = data[data['water'] == 'lake']
+            natural = data[data['natural'] == 'water']
+            lakes_wgs84 = natural[natural['water'] == 'lake']
             lakes = lakes_wgs84.to_crs(epsg=3857)
             lakes = lakes[lakes.geometry.area > 5000000]
             lakes_filtered = lakes.to_crs(4326)
