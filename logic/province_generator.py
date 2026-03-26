@@ -70,10 +70,10 @@ def generate_province_map(layout, image_display, min_distance: int):
 
     layout.error_label.hide()
 
-
+    min_distance_water = min_distance * 2
 
     # Генерируем заполняющие точки по всей карте
-    extra_points = poisson_disc_samples(layout, w, h, min_distance, k=30, seed=42, is_land=lambda px, py: is_land_pixel(layout, px, py), to_land=lambda px, py: to_land_pixel(layout, px, py))
+    extra_points = poisson_disc_samples(layout, w, h, min_distance, min_distance_water=min_distance_water, k=30, seed=42, is_land=lambda px, py: is_land_pixel(layout, px, py), to_land=lambda px, py: to_land_pixel(layout, px, py))
 
     layout.progress.setValue(30)
 

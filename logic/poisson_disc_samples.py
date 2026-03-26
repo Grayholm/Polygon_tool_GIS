@@ -2,25 +2,21 @@ import numpy as np
 from shapely import Point
 from shapely.strtree import STRtree
 
-def poisson_disc_samples(layout, width, height, min_distance, k=30, seed=None, is_land=None, to_land=None):
-    """
-    Bridson's Poisson disk sampling — заполняет прямоугольник [0, width) × [0, height)
-    точками так, чтобы расстояние между любыми двумя было не меньше min_distance.
-    
-    Возвращает np.array (n, 2) с координатами [x, y].
-    """
+def poisson_disc_samples(layout, width, height, min_distance, min_distance_water, k=30, seed=None, is_land=None, to_land=None):
     if seed is not None:
         np.random.seed(seed)
     
-    # Размер ячейки сетки для ускорения поиска
-    cell_size = min_distance / np.sqrt(2)
+    # Размер ячейки (берём минимальный радиус для корректности)
+    base_min_dist = min(min_distance, min_distance_water)
+    cell_size = base_min_dist / np.sqrt(2)
+
     grid_w = int(np.ceil(width / cell_size)) + 1
     grid_h = int(np.ceil(height / cell_size)) + 1
     grid = np.full((grid_h, grid_w), -1, dtype=int)
     
-    def random_in_ring(center):
+    def random_in_ring(center, r_min):
         angle = np.random.uniform(0, 2 * np.pi)
-        radius = np.random.uniform(min_distance, 2 * min_distance)
+        radius = np.random.uniform(r_min, 2 * r_min)
         return center + np.array([radius * np.cos(angle), radius * np.sin(angle)])
     
     points = []
@@ -31,52 +27,76 @@ def poisson_disc_samples(layout, width, height, min_distance, k=30, seed=None, i
     if layout.bays_polygons:
         bays_index = STRtree(layout.bays_polygons)
     
-    # Первая случайная точка
+    # Первая точка
     first = np.array([np.random.uniform(0, width), np.random.uniform(0, height)])
     points.append(first)
     active.append(first)
+
     gx, gy = (first // cell_size).astype(int)
     grid[gy, gx] = 0
     
     while active:
         idx = np.random.randint(len(active))
         center = active[idx]
+
+        # определяем тип центра
+        center_is_land = is_land(center[0], center[1])
+        r_min = min_distance if center_is_land else min_distance_water
+
         found = False
         
         for _ in range(k):
-            candidate = random_in_ring(center)
+            candidate = random_in_ring(center, r_min)
 
             if not (0 <= candidate[0] < width and 0 <= candidate[1] < height):
                 continue
 
-            if not is_land(candidate[0], candidate[1]):
-                continue
-            
-            x, y = to_land(candidate[0], candidate[1])
+            # определяем тип кандидата
+            is_land_point = is_land(candidate[0], candidate[1])
+
+            if is_land_point:
+                x, y = to_land(candidate[0], candidate[1])
+            else:
+                x, y = candidate
 
             p = Point(x, y)
 
+            # исключаем озёра и заливы
             if layout.lakes_polygons:
                 candidate_lakes = [layout.lakes_polygons[i] for i in lakes_index.query(p)]
                 if any(poly.contains(p) for poly in candidate_lakes):
                     continue
+
             if layout.bays_polygons:
                 candidate_bays = [layout.bays_polygons[i] for i in bays_index.query(p)]
                 if any(poly.contains(p) for poly in candidate_bays):
                     continue
 
             cx, cy = (candidate // cell_size).astype(int)
+
             too_close = False
             
-            # Проверяем соседние ячейки (в квадрате 5×5)
             for dy in range(-2, 3):
                 for dx in range(-2, 3):
                     nx, ny = cx + dx, cy + dy
                     if 0 <= nx < grid_w and 0 <= ny < grid_h:
                         n = grid[ny, nx]
                         if n >= 0:
-                            dist = np.linalg.norm(candidate - points[n])
-                            if dist < min_distance:
+                            neighbor = points[n]
+                            dist = np.linalg.norm(candidate - neighbor)
+
+                            neighbor_is_land = is_land(neighbor[0], neighbor[1])
+
+                            # выбираем дистанцию
+                            if is_land_point and neighbor_is_land:
+                                min_dist = min_distance
+                            elif not is_land_point and not neighbor_is_land:
+                                min_dist = min_distance_water
+                            else:
+                                # граница суша/вода
+                                min_dist = max(min_distance, min_distance_water)
+
+                            if dist < min_dist:
                                 too_close = True
                                 break
                 if too_close:
