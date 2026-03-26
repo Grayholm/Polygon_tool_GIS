@@ -141,26 +141,26 @@ def import_file_of_areas(layout, text: str, exp_pix):
 
     layout.progress.setValue(50)
 
-    # извлекаем линии рек, если они есть
-    if 'waterway' in data.columns:
-        waterways = data[data['waterway'].isin(['river'])]
-        # Тут есть тип не только way, но и relation, и в зависимости от типа геометрии может быть LineString или MultiLineString.
-        river_seeds = [list(l.coords)
-                      for l in waterways.geometry
-                      if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
-        pix_lines, size = conversion_to_pixels(layout, ppm, river_seeds)
-        layout.river_seeds = pix_lines
-        layout.map_pixels_size = size
+    # # извлекаем линии рек, если они есть
+    # if 'waterway' in data.columns:
+    #     waterways = data[data['waterway'].isin(['river'])]
+    #     # Тут есть тип не только way, но и relation, и в зависимости от типа геометрии может быть LineString или MultiLineString.
+    #     river_seeds = [list(l.coords)
+    #                   for l in waterways.geometry
+    #                   if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
+    #     pix_lines, size = conversion_to_pixels(layout, ppm, river_seeds)
+    #     layout.river_seeds = pix_lines
+    #     layout.map_pixels_size = size
 
     if 'natural' in data.columns:
-        if "coastline" in data['natural'].values:
-            coastlines = data[data['natural'] == 'coastline']
-            coastline_seeds = [list(l.coords)
-                            for l in coastlines.geometry
-                            if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
-            pix_coastlines, size = conversion_to_pixels(layout, ppm, coastline_seeds)
-            layout.coastline_seeds = pix_coastlines
-            layout.map_pixels_size = size
+        # if "coastline" in data['natural'].values:
+        #     coastlines = data[data['natural'] == 'coastline']
+        #     coastline_seeds = [list(l.coords)
+        #                     for l in coastlines.geometry
+        #                     if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
+        #     pix_coastlines, size = conversion_to_pixels(layout, ppm, coastline_seeds)
+        #     layout.coastline_seeds = pix_coastlines
+        #     layout.map_pixels_size = size
 
         if "bay" in data['natural'].values:
             bays = data[data['natural'] == 'bay']
