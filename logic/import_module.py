@@ -6,8 +6,12 @@
 # Широта может быть от -90 до +90 градусов. Если широта положительная, то это северное полушарие, если отрицательная - южное полушарие.
 # Здесь мы получаем файл с населенными пунктами, извлекаем их координаты и преобразуем их в пиксели для отображения на карте.
 
+from pathlib import Path
+
 import geopandas as gpd
 from PyQt6.QtWidgets import QFileDialog
+from shapely.geometry import box
+from shapely.ops import unary_union
 
 # доп проверки
 def _is_point(obj) -> bool:
@@ -121,18 +125,39 @@ def import_file_of_areas(layout, text: str, exp_pix):
     layout.progress.setVisible(True)
     layout.progress.setValue(5)
 
+    BASE_DIR = Path(__file__).resolve().parent
+    file_path = BASE_DIR.parent / "ne_10m_land" / "ne_10m_land.shp"
+
+    # беру файл natural earth, который будем дальше использовать для обрезки провинции по границам суши и все такое, так как с osm данными такое сделать крайне сложно(я хз как)
+    land_gdf = gpd.read_file(file_path)                    # обычно EPSG:4326
+    land_union = land_gdf.union_all()                      # shapely MultiPolygon
+    land_union = land_union.simplify(tolerance=0.01, preserve_topology=True)
+
+
     data = gpd.read_file(path, on_invalid="fix")
     if data.empty:
         layout.success_label.setText("Файл пустой")
         return
+    
+    bbox_4326 = data.total_bounds.copy
+    layout.bbox_4326 = bbox_4326
+
     data = data.to_crs(epsg=3857) # переводим координаты геоданных в метры, чтобы потом корректно преобразовать в пиксели
     layout.geo_data = data
+
+    bbox = data.total_bounds
+    layout.bbox = bbox
+
+    # просто обрезка всей карты natural earth по bbox из данных osm
+    mask_poly = box(*bbox_4326)
+    land_gdf_local = gpd.GeoDataFrame(geometry=[land_union], crs="EPSG:4326")
+    local_land_gdf = gpd.clip(land_gdf_local, mask_poly)
+    local_land = local_land_gdf.union_all()
+    local_land = local_land.simplify(tolerance=0.005, preserve_topology=True)
 
     # извлекаем точки из геоданных, если они есть
     if 'place' in data.columns:
         populated = data[data['place'].isin(['village', 'city', 'town'])]
-        # Крпрче, из-за того, что в некоторых файлах точки могут быть представлены как полигоны (например, город может быть полигоном), 
-        # мы берем их центры для генерации провинций. Если же это уже точки, то просто берем их координаты.
         seeds = [(p.centroid.x, p.centroid.y)
                  for p in populated.geometry]
         pix_seeds, size = conversion_to_pixels(layout, ppm, seeds)

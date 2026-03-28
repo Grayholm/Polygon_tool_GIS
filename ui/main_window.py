@@ -23,6 +23,8 @@ class MainWindow(QWidget):
         self.bays_polygons = None
         self.lakes_polygons = None
 
+        self.bbox = None
+        self.bbox_4326 = None
         self.scale_x = None
         self.scale_y = None
         self.minx = None
