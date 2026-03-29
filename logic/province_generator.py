@@ -1,6 +1,7 @@
 from global_land_mask import globe
 import numpy as np
 from pyproj import Transformer
+from shapely import Point
 
 from logic.poisson_disc_samples import poisson_disc_samples
 from scipy.spatial import Voronoi, voronoi_plot_2d
@@ -22,10 +23,11 @@ class PixelToLatLon:
 # Кэшируем единственный экземпляр
 _pixel_to_latlon = PixelToLatLon()
 
-def pixels_to_degrees(px, py, minx, maxy, scale_x, scale_y):
+def pixels_to_degrees(px, py, minx, maxy, scale_x, scale_y, local_land):
     def meters_to_degrees(x, y):
         x, y = _pixel_to_latlon.transform(x, y)
-        return globe.is_land(y, x)
+        point = Point(x, y)
+        return local_land.contains(point)
 
     def pixels_to_meters(px, py):
         x = px / scale_x + minx
@@ -42,7 +44,8 @@ def is_land_pixel(layout, px, py):
         layout.minx,
         layout.maxy,
         layout.scale_x,
-        layout.scale_y
+        layout.scale_y,
+        layout.local_land_polygons
     )
 
 def to_land_pixel(layout, px, py):

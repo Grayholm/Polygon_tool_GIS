@@ -11,7 +11,6 @@ from pathlib import Path
 import geopandas as gpd
 from PyQt6.QtWidgets import QFileDialog
 from shapely.geometry import box
-from shapely.ops import unary_union
 
 # доп проверки
 def _is_point(obj) -> bool:
@@ -156,7 +155,7 @@ def import_file_of_areas(layout, text: str, exp_pix):
     local_land = local_land_gdf.union_all()
     local_land = local_land.simplify(tolerance=0.005, preserve_topology=True)
 
-    print(local_land)
+    layout.local_land_polygons = local_land
 
     # извлекаем точки из геоданных, если они есть
     if 'place' in data.columns:

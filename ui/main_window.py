@@ -22,6 +22,7 @@ class MainWindow(QWidget):
 
         self.bays_polygons = None
         self.lakes_polygons = None
+        self.local_land_polygons = None
 
         self.bbox = None
         self.bbox_4326 = None
