@@ -139,8 +139,9 @@ def import_file_of_areas(layout, text: str, exp_pix):
         layout.success_label.setText("Файл пустой")
         return
     
-    bbox_4326 = data.total_bounds.copy
+    bbox_4326 = data.total_bounds
     layout.bbox_4326 = bbox_4326
+    print(type(bbox_4326))
 
     data = data.to_crs(epsg=3857) # переводим координаты геоданных в метры, чтобы потом корректно преобразовать в пиксели
     layout.geo_data = data
@@ -154,6 +155,8 @@ def import_file_of_areas(layout, text: str, exp_pix):
     local_land_gdf = gpd.clip(land_gdf_local, mask_poly)
     local_land = local_land_gdf.union_all()
     local_land = local_land.simplify(tolerance=0.005, preserve_topology=True)
+
+    print(local_land)
 
     # извлекаем точки из геоданных, если они есть
     if 'place' in data.columns:
@@ -178,14 +181,6 @@ def import_file_of_areas(layout, text: str, exp_pix):
     #     layout.map_pixels_size = size
 
     if 'natural' in data.columns:
-        # if "coastline" in data['natural'].values:
-        #     coastlines = data[data['natural'] == 'coastline']
-        #     coastline_seeds = [list(l.coords)
-        #                     for l in coastlines.geometry
-        #                     if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
-        #     pix_coastlines, size = conversion_to_pixels(layout, ppm, coastline_seeds)
-        #     layout.coastline_seeds = pix_coastlines
-        #     layout.map_pixels_size = size
 
         if "bay" in data['natural'].values:
             bays = data[data['natural'] == 'bay']
