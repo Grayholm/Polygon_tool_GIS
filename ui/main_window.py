@@ -22,9 +22,12 @@ class MainWindow(QWidget):
 
         self.bays_polygons = None
         self.lakes_polygons = None
-        self.local_land_polygons = None
+        self.local_land_gdf = None
+        self.local_land = None
+        self.local_water_gdf = None
+        self.local_water = None
 
-        self.bbox = None
+        self.bbox_3857 = None
         self.bbox_4326 = None
         self.scale_x = None
         self.scale_y = None

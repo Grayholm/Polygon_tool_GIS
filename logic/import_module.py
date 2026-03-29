@@ -125,13 +125,17 @@ def import_file_of_areas(layout, text: str, exp_pix):
     layout.progress.setValue(5)
 
     BASE_DIR = Path(__file__).resolve().parent
-    file_path = BASE_DIR.parent / "ne_10m_land" / "ne_10m_land.shp"
+    file_path_land = BASE_DIR.parent / "ne_10m_land" / "ne_10m_land.shp"
+    file_path_water = BASE_DIR.parent / "ne_10m_ocean" / "ne_10m_ocean.shp"
 
     # беру файл natural earth, который будем дальше использовать для обрезки провинции по границам суши и все такое, так как с osm данными такое сделать крайне сложно(я хз как)
-    land_gdf = gpd.read_file(file_path)                    # обычно EPSG:4326
+    land_gdf = gpd.read_file(file_path_land)                    # обычно EPSG:4326
     land_union = land_gdf.union_all()                      # shapely MultiPolygon
     land_union = land_union.simplify(tolerance=0.01, preserve_topology=True)
 
+    water_gdf = gpd.read_file(file_path_water)
+    water_union = water_gdf.union_all()
+    water_union = water_union.simplify(tolerance=0.01, preserve_topology=True)
 
     data = gpd.read_file(path, on_invalid="fix")
     if data.empty:
@@ -146,16 +150,26 @@ def import_file_of_areas(layout, text: str, exp_pix):
     layout.geo_data = data
 
     bbox = data.total_bounds
-    layout.bbox = bbox
+    layout.bbox_3857 = bbox
 
     # просто обрезка всей карты natural earth по bbox из данных osm
     mask_poly = box(*bbox_4326)
-    land_gdf_local = gpd.GeoDataFrame(geometry=[land_union], crs="EPSG:4326")
-    local_land_gdf = gpd.clip(land_gdf_local, mask_poly)
+
+    local_land_gdf = gpd.GeoDataFrame(geometry=[land_union], crs="EPSG:4326")
+    local_land_gdf = gpd.clip(local_land_gdf, mask_poly)
+    local_water_gdf = gpd.GeoDataFrame(geometry=[water_union], crs="EPSG:4326")
+    local_water_gdf = gpd.clip(local_water_gdf, mask_poly)
+
+    layout.local_land_gdf = local_land_gdf
+    layout.local_water_gdf = local_water_gdf
+
     local_land = local_land_gdf.union_all()
     local_land = local_land.simplify(tolerance=0.005, preserve_topology=True)
+    local_water = local_water_gdf.union_all()
+    local_water = local_water.simplify(tolerance=0.005, preserve_topology=True)
 
-    layout.local_land_polygons = local_land
+    layout.local_land = local_land
+    layout.local_water = local_water
 
     # извлекаем точки из геоданных, если они есть
     if 'place' in data.columns:
