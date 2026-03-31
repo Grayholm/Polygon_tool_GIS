@@ -22,10 +22,11 @@ def poisson_disc_samples(layout, width, height, min_distance, min_distance_water
     points = []
     active = []
 
-    if layout.lakes_polygons:
-        lakes_index = STRtree(layout.lakes_polygons)
-    if layout.bays_polygons:
-        bays_index = STRtree(layout.bays_polygons)
+    has_lakes = layout.lakes_polygons is not None and len(layout.lakes_polygons) > 0
+    has_bays = layout.bays_polygons is not None and len(layout.bays_polygons) > 0
+    
+    lakes_index = STRtree(layout.lakes_polygons) if has_lakes else None
+    bays_index = STRtree(layout.bays_polygons) if has_bays else None
     
     # Первая точка
     first = np.array([np.random.uniform(0, width), np.random.uniform(0, height)])
@@ -62,12 +63,12 @@ def poisson_disc_samples(layout, width, height, min_distance, min_distance_water
             p = Point(x, y)
 
             # исключаем озёра и заливы
-            if layout.lakes_polygons:
+            if has_lakes:
                 candidate_lakes = [layout.lakes_polygons[i] for i in lakes_index.query(p)]
                 if any(poly.contains(p) for poly in candidate_lakes):
                     continue
 
-            if layout.bays_polygons:
+            if has_bays:
                 candidate_bays = [layout.bays_polygons[i] for i in bays_index.query(p)]
                 if any(poly.contains(p) for poly in candidate_bays):
                     continue

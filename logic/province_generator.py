@@ -28,14 +28,14 @@ def pixel_to_latlon(px, py, layout):
 
 # === ПРОВЕРКА СУШИ ===
 def is_land_pixel(layout, px, py):
-    lon, lat = pixel_to_latlon(px, py, layout)
-    return layout.local_land.contains(Point(lon, lat))
+    x, y = pixel_to_meters(px, py, layout)
+    return layout.local_land.contains(Point(x, y))
 
 
 # === SNAP К СУШЕ ===
 def to_land_pixel(layout, px, py):
-    lon, lat = pixel_to_latlon(px, py, layout)
-    return lon, lat
+    x, y = pixel_to_meters(px, py, layout)
+    return x, y
 
 
 # === ГЛАВНАЯ ФУНКЦИЯ ===
@@ -82,21 +82,20 @@ def generate_province_map(layout, image_display, min_distance: int):
     layout.progress.setValue(60)
 
     # === ПЕРЕВОД В ГРАДУСЫ ===
-    def convert_to_latlon(points):
+    def convert_to_meters(points):
         result = []
         for px, py in points:
             x = px / layout.scale_x + layout.minx
             y = layout.maxy - (py / layout.scale_y)
-            lon, lat = TO_LATLON.transform(x, y)
-            result.append([lon, lat])
+            result.append([x, y])
         return np.array(result)
 
-    original_ll = convert_to_latlon(original_px)
-    extra_ll = convert_to_latlon(extra_px)
+    original_m = convert_to_meters(original_px)
+    extra_m = convert_to_meters(extra_px)
 
     all_points = (
-        np.vstack([original_ll, extra_ll])
-        if len(extra_ll) > 0 else original_ll
+        np.vstack([original_m, extra_m])
+        if len(extra_m) > 0 else original_m
     )
 
     print(f"Всего точек: {len(all_points)}")
@@ -141,10 +140,10 @@ def generate_province_map(layout, image_display, min_distance: int):
                 ax.plot(x, y, color="#9b1c2c", linewidth=0.8)
 
     # === ТОЧКИ ===
-    if len(original_ll) > 0:
+    if len(original_m) > 0:
         ax.scatter(
-            original_ll[:, 0],
-            original_ll[:, 1],
+            original_m[:, 0],
+            original_m[:, 1],
             c="red",
             s=30,
             edgecolors="black",
@@ -153,8 +152,8 @@ def generate_province_map(layout, image_display, min_distance: int):
         )
 
     ax.scatter(
-        extra_ll[:, 0],
-        extra_ll[:, 1],
+        extra_m[:, 0],
+        extra_m[:, 1],
         c="blue",
         s=10,
         alpha=0.6,
@@ -165,9 +164,10 @@ def generate_province_map(layout, image_display, min_distance: int):
     layout.progress.setValue(100)
 
     # === ГРАНИЦЫ ===
-    minx, miny, maxx, maxy = layout.local_land_gdf.total_bounds
-    ax.set_xlim(minx, maxx)
-    ax.set_ylim(miny, maxy)
+    all_x = np.concatenate([original_m[:,0], extra_m[:,0]])
+    all_y = np.concatenate([original_m[:,1], extra_m[:,1]])
+    ax.set_xlim(all_x.min(), all_x.max())
+    ax.set_ylim(all_y.min(), all_y.max())
 
     ax.set_aspect("equal")
     ax.legend()
