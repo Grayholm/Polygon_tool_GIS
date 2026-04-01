@@ -236,10 +236,11 @@ def generate_province_map(layout, image_display, min_distance: int):
     layout.progress.setValue(100)
 
     # === ГРАНИЦЫ ВИДА ===
-    all_x = all_points[:, 0]
-    all_y = all_points[:, 1]
-    ax.set_xlim(all_x.min(), all_x.max())
-    ax.set_ylim(all_y.min(), all_y.max())
+    # all_x = all_points[:, 0]
+    # all_y = all_points[:, 1]
+    min_x, max_x, min_y, max_y = layout.bbox_3857
+    ax.set_xlim(min_x, max_x)
+    ax.set_ylim(min_y, max_y)
     ax.set_aspect("equal")
     ax.legend()
     ax.set_title(f"Провинции: {len(all_points)} точек")
