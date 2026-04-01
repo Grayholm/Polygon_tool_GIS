@@ -6,8 +6,11 @@
 # Широта может быть от -90 до +90 градусов. Если широта положительная, то это северное полушарие, если отрицательная - южное полушарие.
 # Здесь мы получаем файл с населенными пунктами, извлекаем их координаты и преобразуем их в пиксели для отображения на карте.
 
+from pathlib import Path
+
 import geopandas as gpd
 from PyQt6.QtWidgets import QFileDialog
+from shapely.geometry import box
 
 # доп проверки
 def _is_point(obj) -> bool:
@@ -121,23 +124,58 @@ def import_file_of_areas(layout, text: str, exp_pix):
     layout.progress.setVisible(True)
     layout.progress.setValue(5)
 
+    BASE_DIR = Path(__file__).resolve().parent
+    file_path_land = BASE_DIR.parent / "ne_10m_land" / "ne_10m_land.shp"
+    file_path_water = BASE_DIR.parent / "ne_10m_ocean" / "ne_10m_ocean.shp"
+
+    # беру файл natural earth, который будем дальше использовать для обрезки провинции по границам суши и все такое, так как с osm данными такое сделать крайне сложно(я хз как)
+    land_gdf = gpd.read_file(file_path_land).to_crs(epsg=3857)
+    water_gdf = gpd.read_file(file_path_water).to_crs(epsg=3857)
+
     data = gpd.read_file(path, on_invalid="fix")
     if data.empty:
         layout.success_label.setText("Файл пустой")
         return
+    
+    bbox_4326 = data.total_bounds
+    layout.bbox_4326 = bbox_4326
+    print(type(bbox_4326))
+
     data = data.to_crs(epsg=3857) # переводим координаты геоданных в метры, чтобы потом корректно преобразовать в пиксели
     layout.geo_data = data
+
+    bbox_3857 = data.total_bounds
+    layout.bbox_3857 = bbox_3857
+
+    # просто обрезка всей карты natural earth по bbox из данных osm
+    mask_poly = box(*bbox_3857)
+
+    local_land_gdf = gpd.clip(land_gdf, mask_poly)
+    local_water_gdf = gpd.clip(water_gdf, mask_poly)
+
+    layout.local_land_gdf = local_land_gdf
+    layout.local_water_gdf = local_water_gdf
+
+    local_land = local_land_gdf.union_all()
+    local_land = local_land.simplify(tolerance=0.005, preserve_topology=True)
+    local_water = local_water_gdf.union_all()
+    local_water = local_water.simplify(tolerance=0.005, preserve_topology=True)
+
+    layout.local_land = local_land
+    layout.local_water = local_water
 
     # извлекаем точки из геоданных, если они есть
     if 'place' in data.columns:
         populated = data[data['place'].isin(['village', 'city', 'town'])]
-        # Крпрче, из-за того, что в некоторых файлах точки могут быть представлены как полигоны (например, город может быть полигоном), 
-        # мы берем их центры для генерации провинций. Если же это уже точки, то просто берем их координаты.
         seeds = [(p.centroid.x, p.centroid.y)
                  for p in populated.geometry]
         pix_seeds, size = conversion_to_pixels(layout, ppm, seeds)
         layout.pix_seeds = pix_seeds
         layout.map_pixels_size = size
+    else:
+        # Если колонка 'place' отсутствует, инициализируем пустым списком
+        layout.pix_seeds = []
+        layout.map_pixels_size = (0, 0)
 
     layout.progress.setValue(50)
 
@@ -153,28 +191,22 @@ def import_file_of_areas(layout, text: str, exp_pix):
     #     layout.map_pixels_size = size
 
     if 'natural' in data.columns:
-        # if "coastline" in data['natural'].values:
-        #     coastlines = data[data['natural'] == 'coastline']
-        #     coastline_seeds = [list(l.coords)
-        #                     for l in coastlines.geometry
-        #                     if l.geom_type == 'LineString' or l.geom_type == 'MultiLineString']
-        #     pix_coastlines, size = conversion_to_pixels(layout, ppm, coastline_seeds)
-        #     layout.coastline_seeds = pix_coastlines
-        #     layout.map_pixels_size = size
 
         if "bay" in data['natural'].values:
             bays = data[data['natural'] == 'bay']
             bays_polygons = [i for i in bays.geometry]
             layout.bays_polygons = bays_polygons
+        else:
+            layout.bays_polygons = []
 
         if "water" in data['natural'].values:
             natural = data[data['natural'] == 'water']
-            lakes_wgs84 = natural[natural['water'] == 'lake']
-            lakes = lakes_wgs84.to_crs(epsg=3857)
-            lakes = lakes[lakes.geometry.area > 5000000]
-            lakes_filtered = lakes.to_crs(4326)
+            lakes = natural[natural['water'] == 'lake']
+            lakes_filtered = lakes[lakes.geometry.area > 5000000]
             lakes_polygons = [i for i in lakes_filtered.geometry]
             layout.lakes_polygons = lakes_polygons
+        else:
+            layout.lakes_polygons = []
 
     layout.progress.setValue(100)
     layout.success_label.show()

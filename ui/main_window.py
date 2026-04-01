@@ -18,11 +18,16 @@ class MainWindow(QWidget):
         self.map_pixels_size = None
         self.pix_seeds = None
         self.river_seeds = None
-        self.coastline_seeds = None
 
         self.bays_polygons = None
         self.lakes_polygons = None
+        self.local_land_gdf = None
+        self.local_land = None
+        self.local_water_gdf = None
+        self.local_water = None
 
+        self.bbox_3857 = None
+        self.bbox_4326 = None
         self.scale_x = None
         self.scale_y = None
         self.minx = None
