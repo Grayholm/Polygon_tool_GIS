@@ -1,13 +1,12 @@
 import numpy as np
 from pyproj import Transformer
-from shapely.geometry import LineString, Point
+from shapely.geometry import Polygon, Point
+from shapely.ops import unary_union
 from scipy.spatial import Voronoi
 import matplotlib.pyplot as plt
 
 from logic.poisson_disc_samples import poisson_disc_samples
 
-# === TRANSFORMERS ===
-# 3857 <-> 4326
 TO_LATLON = Transformer.from_crs(3857, 4326, always_xy=True)
 TO_METERS = Transformer.from_crs(4326, 3857, always_xy=True)
 
@@ -17,13 +16,6 @@ def pixel_to_meters(px, py, layout):
     x = px / layout.scale_x + layout.minx
     y = layout.maxy - (py / layout.scale_y)
     return x, y
-
-
-# === PIXELS -> LAT/LON ===
-def pixel_to_latlon(px, py, layout):
-    x, y = pixel_to_meters(px, py, layout)
-    lon, lat = TO_LATLON.transform(x, y)
-    return lon, lat
 
 
 # === ПРОВЕРКА СУШИ ===
@@ -36,6 +28,70 @@ def is_land_pixel(layout, px, py):
 def to_land_pixel(layout, px, py):
     x, y = pixel_to_meters(px, py, layout)
     return x, y
+
+
+# === Вспомогательная функция для конечных полигонов Voronoi ===
+def voronoi_finite_polygons_2d(vor, radius=None):
+    import numpy as np
+    from collections import defaultdict
+
+    new_regions = []
+    new_vertices = vor.vertices.tolist()
+    center = vor.points.mean(axis=0)
+    radius = radius or np.ptp(vor.points, axis=0).max() * 2
+
+    all_ridges = defaultdict(list)
+    for (p1, p2), (v1, v2) in zip(vor.ridge_points, vor.ridge_vertices):
+        all_ridges[p1].append((p2, v1, v2))
+        all_ridges[p2].append((p1, v1, v2))
+
+    for p1, region_idx in enumerate(vor.point_region):
+        vertices = vor.regions[region_idx]
+        if all(v >= 0 for v in vertices):
+            new_regions.append(vertices)
+            continue
+
+        ridges = all_ridges[p1]
+        new_region = [v for v in vertices if v >= 0]
+
+        for p2, v1, v2 in ridges:
+            if v2 < 0:
+                v1, v2 = v2, v1
+            if v1 >= 0:
+                continue
+
+            t = vor.points[p2] - vor.points[p1]
+            t /= np.linalg.norm(t)
+            n = np.array([-t[1], t[0]])
+
+            midpoint = vor.points[[p1, p2]].mean(axis=0)
+            direction = np.sign(np.dot(midpoint - center, n)) * n
+            far_point = vor.vertices[v2] + direction * radius
+
+            new_region.append(len(new_vertices))
+            new_vertices.append(far_point.tolist())
+
+        vs = np.asarray([new_vertices[v] for v in new_region])
+        c = vs.mean(axis=0)
+        angles = np.arctan2(vs[:, 1] - c[1], vs[:, 0] - c[0])
+        new_region = [v for _, v in sorted(zip(angles, new_region))]
+
+        new_regions.append(new_region)
+
+    return new_regions, np.asarray(new_vertices)
+
+
+# === Функция отрисовки полигона ===
+def draw_geom(ax, geom, color, alpha=0.6):
+    if geom.is_empty:
+        return
+    if geom.geom_type == "Polygon":
+        x, y = geom.exterior.xy
+        ax.fill(x, y, color=color, alpha=alpha, linewidth=0)
+    elif geom.geom_type == "MultiPolygon":
+        for g in geom.geoms:
+            x, y = g.exterior.xy
+            ax.fill(x, y, color=color, alpha=alpha, linewidth=0)
 
 
 # === ГЛАВНАЯ ФУНКЦИЯ ===
@@ -81,7 +137,7 @@ def generate_province_map(layout, image_display, min_distance: int):
 
     layout.progress.setValue(60)
 
-    # === ПЕРЕВОД В ГРАДУСЫ ===
+    # === ПЕРЕВОД В МЕТРЫ ===
     def convert_to_meters(points):
         result = []
         for px, py in points:
@@ -92,83 +148,98 @@ def generate_province_map(layout, image_display, min_distance: int):
 
     original_m = convert_to_meters(original_px)
     extra_m = convert_to_meters(extra_px)
-
-    all_points = (
-        np.vstack([original_m, extra_m])
-        if len(extra_m) > 0 else original_m
-    )
+    all_points = np.vstack([original_m, extra_m]) if len(extra_m) > 0 else original_m
 
     print(f"Всего точек: {len(all_points)}")
 
-    # === VORONOI В МЕТРАХ ===
-    vor = Voronoi(all_points)
+    # === РАЗДЕЛЕНИЕ ТОЧЕК НА СУШУ И ВОДУ ===
+    land_points = []
+    water_points = []
+    for px, py in all_points:
+        pt = Point(px, py)
+        if layout.local_land.contains(pt):
+            land_points.append([px, py])
+        else:
+            water_points.append([px, py])
+
+    land_points = np.array(land_points)
+    water_points = np.array(water_points)
 
     fig, ax = plt.subplots(figsize=(16, 10))
 
-    # === РИСУЕМ СУШУ (В МЕТРАХ!) ===
-    layout.local_land_gdf.plot(
-        ax=ax,
-        color="#d0e0b0",
-        edgecolor="none",
-        alpha=0.9
-    )
-
+    # === РИСУЕМ СУШУ (фон) ===
+    layout.local_land_gdf.plot(ax=ax, color="#d0e0b0", edgecolor="none", alpha=0.9)
     layout.progress.setValue(80)
 
-    print("Режем Voronoi по суше...")
+    # === VORONOI ДЛЯ СУШИ ===
+    if len(land_points) > 0:
+        vor_land = Voronoi(land_points)
+        land_regions, land_vertices = voronoi_finite_polygons_2d(vor_land)
+        for region in land_regions:
+            poly = Polygon(land_vertices[region])
+            if not poly.is_valid:
+                poly = poly.buffer(0)
+            poly_land = poly.intersection(layout.local_land)
+            draw_geom(ax, poly_land, "#9b1c2c", alpha=0.6)  # заливка
 
-    # === ОБРЕЗКА ===
-    land = layout.local_land  # уже должен быть в 3857!
+            # линия границы
+            if not poly_land.is_empty:
+                if poly_land.geom_type == "Polygon":
+                    x, y = poly_land.exterior.xy
+                    ax.plot(x, y, color="#7f0000", linewidth=1.2)  # границы суши
+                elif poly_land.geom_type == "MultiPolygon":
+                    for g in poly_land.geoms:
+                        x, y = g.exterior.xy
+                        ax.plot(x, y, color="#7f0000", linewidth=1.2)
 
-    for ridge in vor.ridge_vertices:
-        if -1 in ridge or len(ridge) < 2:
-            continue
+    # === VORONOI ДЛЯ ВОДЫ ===
+    if len(water_points) > 0:
+        vor_water = Voronoi(water_points)
+        water_regions, water_vertices = voronoi_finite_polygons_2d(vor_water)
+        for region in water_regions:
+            poly = Polygon(water_vertices[region])
+            if not poly.is_valid:
+                poly = poly.buffer(0)
+            poly_water = poly.intersection(layout.local_water)
+            draw_geom(ax, poly_water, "#1f4e79", alpha=0.6)  # заливка
 
-        line = LineString(vor.vertices[ridge])
-        clipped = line.intersection(land)
+            # линия границы
+            if not poly_water.is_empty:
+                if poly_water.geom_type == "Polygon":
+                    x, y = poly_water.exterior.xy
+                    ax.plot(x, y, color="#003366", linewidth=1.2)  # границы воды
+                elif poly_water.geom_type == "MultiPolygon":
+                    for g in poly_water.geoms:
+                        x, y = g.exterior.xy
+                        ax.plot(x, y, color="#003366", linewidth=1.2)
 
-        if clipped.is_empty:
-            continue
-
-        if clipped.geom_type == "LineString":
-            x, y = clipped.xy
-            ax.plot(x, y, color="#9b1c2c", linewidth=0.8)
-
-        elif clipped.geom_type == "MultiLineString":
-            for sub in clipped.geoms:
-                x, y = sub.xy
-                ax.plot(x, y, color="#9b1c2c", linewidth=0.8)
-
-    # === ТОЧКИ ===
+    # === РИСУЕМ ТОЧКИ ===
     if len(original_m) > 0:
-        ax.scatter(
-            original_m[:, 0],
-            original_m[:, 1],
-            c="red",
-            s=30,
-            edgecolors="black",
-            label="Города",
-            zorder=5
-        )
+        ax.scatter(original_m[:, 0], original_m[:, 1], c="red", s=30,
+                   edgecolors="black", label="Города", zorder=5)
 
-    ax.scatter(
-        extra_m[:, 0],
-        extra_m[:, 1],
-        c="blue",
-        s=10,
-        alpha=0.6,
-        label="Фон",
-        zorder=4
-    )
+    if len(extra_m) > 0:
+        ax.scatter(extra_m[:, 0], extra_m[:, 1], c="blue", s=10, alpha=0.6,
+                   label="Фон", zorder=4)
+
+    # === БЕРЕГОВАЯ ЛИНИЯ ===
+    coastline = layout.local_land.boundary
+    if not coastline.is_empty:
+        if coastline.geom_type == "LineString":
+            x, y = coastline.xy
+            ax.plot(x, y, color="black", linewidth=1.5)
+        elif coastline.geom_type == "MultiLineString":
+            for line in coastline.geoms:
+                x, y = line.xy
+                ax.plot(x, y, color="black", linewidth=1.5)
 
     layout.progress.setValue(100)
 
-    # === ГРАНИЦЫ ===
-    all_x = np.concatenate([original_m[:,0], extra_m[:,0]])
-    all_y = np.concatenate([original_m[:,1], extra_m[:,1]])
+    # === ГРАНИЦЫ ВИДА ===
+    all_x = all_points[:, 0]
+    all_y = all_points[:, 1]
     ax.set_xlim(all_x.min(), all_x.max())
     ax.set_ylim(all_y.min(), all_y.max())
-
     ax.set_aspect("equal")
     ax.legend()
     ax.set_title(f"Провинции: {len(all_points)} точек")
