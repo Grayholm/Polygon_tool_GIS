@@ -1,9 +1,11 @@
 import numpy as np
 from pyproj import Transformer
+from shapely import union_all
 from shapely.geometry import Polygon, Point
 from shapely.ops import unary_union
 from scipy.spatial import Voronoi
 import matplotlib.pyplot as plt
+from shapely.prepared import prep
 
 from logic.poisson_disc_samples import poisson_disc_samples
 
@@ -23,6 +25,17 @@ def is_land_pixel(layout, px, py):
     x, y = pixel_to_meters(px, py, layout)
     return layout.local_land.contains(Point(x, y))
 
+def is_lake_pixel(layout, px, py):
+    if not layout.lakes_polygons:
+        return False
+    x, y = pixel_to_meters(px, py, layout)
+    pt = Point(x, y)
+    return any(poly.contains(pt) for poly in layout.lakes_polygons)
+
+def is_sea_pixel(layout, px, py):
+    x, y = pixel_to_meters(px, py, layout)
+    pt = Point(x, y)
+    return layout.local_water.contains(pt)
 
 # === SNAP К СУШЕ ===
 def to_land_pixel(layout, px, py):
@@ -113,13 +126,12 @@ def generate_province_map(layout, image_display, min_distance: int):
     # === POISSON ===
     extra_px = poisson_disc_samples(
         layout,
-        w, h,
-        min_distance,
-        min_distance_water=min_distance * 2,
+        width=w,
+        height=h,
+        min_distance=90,
+        min_distance_water=180,
         k=30,
-        seed=42,
-        is_land=lambda px, py: is_land_pixel(layout, px, py),
-        to_land=lambda px, py: to_land_pixel(layout, px, py)
+        seed=42
     )
 
     layout.progress.setValue(40)
@@ -153,17 +165,30 @@ def generate_province_map(layout, image_display, min_distance: int):
     print(f"Всего точек: {len(all_points)}")
 
     # === РАЗДЕЛЕНИЕ ТОЧЕК НА СУШУ И ВОДУ ===
+    lakes_geom = union_all(layout.lakes_polygons) if layout.lakes_polygons else None
+
+    prep_land = prep(layout.local_land)
+    prep_water = prep(layout.local_water)
+    prep_lakes = prep(lakes_geom) if lakes_geom else None
+
     land_points = []
-    water_points = []
+    lake_points = []
+    sea_points = []
     for px, py in all_points:
         pt = Point(px, py)
-        if layout.local_land.contains(pt):
+
+        if prep_lakes and prep_lakes.contains(pt):
+            lake_points.append([px, py])
+
+        elif prep_water.contains(pt):
+            sea_points.append([px, py])
+
+        elif prep_land.contains(pt):
             land_points.append([px, py])
-        else:
-            water_points.append([px, py])
 
     land_points = np.array(land_points)
-    water_points = np.array(water_points)
+    lake_points = np.array(lake_points)
+    sea_points = np.array(sea_points)
 
     fig, ax = plt.subplots(figsize=(16, 10))
 
@@ -171,8 +196,29 @@ def generate_province_map(layout, image_display, min_distance: int):
     layout.local_land_gdf.plot(ax=ax, color="#d0e0b0", edgecolor="none", alpha=0.9)
     layout.progress.setValue(80)
 
+    # === VORONOI ДЛЯ ОЩЕР ===
+    if len(lake_points) >= 4:
+        vor_lakes = Voronoi(lake_points)
+        lake_regions, lake_vertices = voronoi_finite_polygons_2d(vor_lakes)
+        for region in lake_regions:
+            poly = Polygon(lake_vertices[region])
+            if not poly.is_valid:
+                poly = poly.buffer(0)
+            poly_lake = poly.intersection(lakes_geom)
+            draw_geom(ax, poly_lake, "#4a86e8", alpha=0.6)  # заливка
+
+            # линия границы
+            if not poly_lake.is_empty:
+                if poly_lake.geom_type == "Polygon":
+                    x, y = poly_lake.exterior.xy
+                    ax.plot(x, y, color="#003366", linewidth=1.2)  # границы озёр
+                elif poly_lake.geom_type == "MultiPolygon":
+                    for g in poly_lake.geoms:
+                        x, y = g.exterior.xy
+                        ax.plot(x, y, color="#003366", linewidth=1.2)
+
     # === VORONOI ДЛЯ СУШИ ===
-    if len(land_points) > 0:
+    if len(land_points) >= 4:
         vor_land = Voronoi(land_points)
         land_regions, land_vertices = voronoi_finite_polygons_2d(vor_land)
         for region in land_regions:
@@ -180,7 +226,7 @@ def generate_province_map(layout, image_display, min_distance: int):
             if not poly.is_valid:
                 poly = poly.buffer(0)
             poly_land = poly.intersection(layout.local_land)
-            draw_geom(ax, poly_land, "#9b1c2c", alpha=0.6)  # заливка
+            draw_geom(ax, poly_land, "#030203", alpha=0.6)  # заливка
 
             # линия границы
             if not poly_land.is_empty:
@@ -192,9 +238,9 @@ def generate_province_map(layout, image_display, min_distance: int):
                         x, y = g.exterior.xy
                         ax.plot(x, y, color="#7f0000", linewidth=1.2)
 
-    # === VORONOI ДЛЯ ВОДЫ ===
-    if len(water_points) > 0:
-        vor_water = Voronoi(water_points)
+    # === VORONOI ДЛЯ МОРЯ ===
+    if len(sea_points) >= 4:
+        vor_water = Voronoi(sea_points)
         water_regions, water_vertices = voronoi_finite_polygons_2d(vor_water)
         for region in water_regions:
             poly = Polygon(water_vertices[region])
@@ -238,7 +284,7 @@ def generate_province_map(layout, image_display, min_distance: int):
     # === ГРАНИЦЫ ВИДА ===
     # all_x = all_points[:, 0]
     # all_y = all_points[:, 1]
-    min_x, max_x, min_y, max_y = layout.bbox_3857
+    min_x, min_y, max_x, max_y = layout.bbox_3857
     ax.set_xlim(min_x, max_x)
     ax.set_ylim(min_y, max_y)
     ax.set_aspect("equal")

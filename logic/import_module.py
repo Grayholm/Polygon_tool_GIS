@@ -10,6 +10,7 @@ from pathlib import Path
 
 import geopandas as gpd
 from PyQt6.QtWidgets import QFileDialog
+from shapely import union_all
 from shapely.geometry import box
 
 # доп проверки
@@ -139,7 +140,6 @@ def import_file_of_areas(layout, text: str, exp_pix):
     
     bbox_4326 = data.total_bounds
     layout.bbox_4326 = bbox_4326
-    print(type(bbox_4326))
 
     data = data.to_crs(epsg=3857) # переводим координаты геоданных в метры, чтобы потом корректно преобразовать в пиксели
     layout.geo_data = data
@@ -156,6 +156,8 @@ def import_file_of_areas(layout, text: str, exp_pix):
     layout.local_land_gdf = local_land_gdf
     layout.local_water_gdf = local_water_gdf
 
+    print(type(local_land_gdf))
+
     local_land = local_land_gdf.union_all()
     local_land = local_land.simplify(tolerance=0.005, preserve_topology=True)
     local_water = local_water_gdf.union_all()
@@ -163,6 +165,8 @@ def import_file_of_areas(layout, text: str, exp_pix):
 
     layout.local_land = local_land
     layout.local_water = local_water
+
+    print(type(local_water))
 
     # извлекаем точки из геоданных, если они есть
     if 'place' in data.columns:
@@ -207,6 +211,13 @@ def import_file_of_areas(layout, text: str, exp_pix):
             layout.lakes_polygons = lakes_polygons
         else:
             layout.lakes_polygons = []
+
+    if layout.lakes_polygons:
+        lakes_geom = union_all(layout.lakes_polygons) if layout.lakes_polygons else None
+        if lakes_geom:
+            layout.local_land = layout.local_land.difference(lakes_geom)
+        else:
+            layout.local_land = layout.local_land
 
     layout.progress.setValue(100)
     layout.success_label.show()
